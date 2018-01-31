@@ -73,7 +73,7 @@
 <script>
     const consl = document.getElementById("console");
     const content = document.getElementById("console-content");
-    const websocket = new WebSocket("ws://localhost:8123/feed");
+    const websocket = new WebSocket("ws://localhost:{{.Port}}/feed/{{.ID}}");
 
     websocket.onopen = function() {
         line("...connection established");
@@ -106,7 +106,7 @@
 
     function action(name) {
         return function () {
-            websocket.send(JSON.stringify({type: "action", content: name}))
+            websocket.send(JSON.stringify({type: "command", content: name}))
         }
     }
 </script>

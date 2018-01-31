@@ -26,7 +26,10 @@ type SchedulePrefs struct {
 }
 
 type ServerPrefs struct {
-	Port int `json:"port"`
+	Port         int    `json:"port"`
+	ClientId     string `json:"client_id"`
+	ClientSecret string `json:"client_secret"`
+	RedirectUri  string `json:"redirect"`
 }
 
 type Config struct {
@@ -82,6 +85,9 @@ func defaultConfig() (Config) {
 		},
 		Server: ServerPrefs{
 			Port: 8123,
+			ClientId: "",
+			ClientSecret: "",
+			RedirectUri: "",
 		},
 	}
 }

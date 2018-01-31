@@ -5,19 +5,17 @@ import (
 	"fmt"
 )
 
+// handles the launch process
 func doLaunch(m *Manager) {
-	cancelled := false
-	// clean-up that should happen after every doLaunch
+	// clean-up that should happen after every launch
 	defer func() {
-		cancelled = true
-		m.setProcess(nil)
-		m.setStatus(stopped)
-		m.setExecutor(emptyExecutor)
+		m.setProcess(nil, nil)
+		m.setStatus(Stopped)
 		m.PrintCommands()
 	}()
 
 	// setup process & input/outputs
-	cmd := m.cmd()
+	cmd := m.getCommand()
 	in, err := cmd.StdinPipe()
 	if err != nil {
 		m.onMessage(fmt.Sprint("Input Err: ", err))
@@ -36,12 +34,12 @@ func doLaunch(m *Manager) {
 		return
 	}
 
-	// set status as 'starting' and attach current process
-	m.setStatus(starting)
-	m.setProcess(cmd.Process)
+	// set status as 'starting' and attach current process/writer
+	m.setStatus(Starting)
+	m.setProcess(cmd.Process, in)
 
 	// start the restart schedule
-	go doSchedule(m, &cancelled)
+	go doSchedule(m)
 
 	// read output from the process and pass to onMessage
 	go func() {
@@ -52,13 +50,7 @@ func doLaunch(m *Manager) {
 		}
 	}()
 
-	// callback that accepts commands and relays to the current process's input
-	m.setExecutor(func(s string) (error) {
-		_, er := fmt.Fprintln(in, s)
-		return er
-	})
-
-	// wait for process to finish or crash and handle appropriately
+	// wait for process to finish, handle crash appropriately
 	if err = cmd.Wait(); err != nil {
 		m.onCrash(err)
 	}

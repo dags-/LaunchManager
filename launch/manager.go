@@ -1,43 +1,30 @@
 package launch
 
 import (
-	"fmt"
-	"github.com/GeertJohan/go.rice"
-	"github.com/gorilla/websocket"
+	"io"
 	"os"
 	"os/exec"
 	"sync"
 	"time"
+
+	"github.com/dags-/LaunchManager/server"
 )
 
-const (
-	starting = "starting"
-	started  = "started"
-	stopping = "stopping"
-	stopped  = "stopped"
-	crashed  = "crashed"
-	killed   = "killed"
-)
-
+// the application state
 type Manager struct {
-	lock      sync.RWMutex
-	status    string
-	process   *os.Process
-	server    Server
-	config    Config
-	onExecute func(string) (error)
+	lock    sync.RWMutex
+	status  Status
+	config  Config
+	server  *server.Server
+	input   io.WriteCloser
+	process *os.Process
 }
 
-func NewManager(b *rice.Box) (*Manager) {
+func NewManager() (*Manager) {
+	config := loadConfig()
 	return &Manager{
-		config:    loadConfig(),
-		status:    stopped,
-		onExecute: emptyExecutor,
-		server: Server{
-			box:     b,
-			upgrade: websocket.Upgrader{},
-			clients: make(map[string]Client),
-		},
+		status: Stopped,
+		config: config,
 	}
 }
 
@@ -57,20 +44,21 @@ func (m *Manager) RUnlock() {
 	m.lock.RUnlock()
 }
 
-func (m *Manager) setProcess(p *os.Process) {
+func (m *Manager) setProcess(p *os.Process, w io.WriteCloser) {
 	m.Lock()
 	defer m.Unlock()
 	m.process = p
+	m.input = w
 }
 
-func (m *Manager) getStatus() (string) {
+func (m *Manager) getStatus() (Status) {
 	m.RLock()
 	defer m.RUnlock()
 	s := m.status
 	return s
 }
 
-func (m *Manager) setStatus(s string) {
+func (m *Manager) setStatus(s Status) {
 	m.Lock()
 	defer m.Unlock()
 	m.status = s
@@ -91,7 +79,7 @@ func (m *Manager) getCrashWait() (time.Duration) {
 	return time.Duration(t) * time.Second
 }
 
-func (m *Manager) cmd() (*exec.Cmd) {
+func (m *Manager) getCommand() (*exec.Cmd) {
 	m.RLock()
 	defer m.RUnlock()
 	var args []string
@@ -99,15 +87,4 @@ func (m *Manager) cmd() (*exec.Cmd) {
 	args = append(args, m.config.Launch.Target)
 	args = append(args, m.config.Launch.Args...)
 	return exec.Command(m.config.Launch.Runtime, args...)
-}
-
-func (m *Manager) setExecutor(e func(string) (error)) {
-	m.Lock()
-	defer m.Unlock()
-	m.onExecute = e
-}
-
-func emptyExecutor(s string) (error) {
-	fmt.Println("empty:", s)
-	return nil
 }

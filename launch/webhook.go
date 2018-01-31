@@ -15,7 +15,7 @@ type Webhook struct {
 	Avatar   string `json:"avatar_url"`
 }
 
-func PostStatus(prefs WebhookPrefs, status string) {
+func PostWebook(prefs WebhookPrefs, status Status) {
 	url := fmt.Sprint(webhookUrl, prefs.Id, "/", prefs.Token)
 	wh := Webhook{
 		Content:  fmt.Sprint("Status: ", status),
@@ -26,12 +26,12 @@ func PostStatus(prefs WebhookPrefs, status string) {
 	var body bytes.Buffer
 	err := json.NewEncoder(&body).Encode(&wh)
 	if err != nil {
-		fmt.Println(err)
+		fmt.Println("Webhook Encode Err:", err)
 		return
 	}
 
 	_, err = http.Post(url, "application/json", &body)
 	if err != nil {
-		fmt.Println(err)
+		fmt.Println("Webhook Post Err:", err)
 	}
 }
