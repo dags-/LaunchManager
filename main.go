@@ -1,4 +1,4 @@
-//go:generate rice embed-go /i github.com/dags-/LaunchManager/server
+//go:generate rice embed-go /i github.com/dags-/LaunchManager/web
 package main
 
 import (

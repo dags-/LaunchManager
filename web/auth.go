@@ -12,6 +12,7 @@ import (
 
 	"github.com/pkg/errors"
 	"golang.org/x/oauth2"
+	"strings"
 )
 
 func handleLogin(s *Server) (http.HandlerFunc) {
@@ -54,7 +55,6 @@ func handleAuth(s *Server) (http.HandlerFunc) {
 
 		// check state is valid for the session
 		if state != getId(r) {
-			s.sessions.Del(state)
 			return errors.New("invalid state")
 		}
 
@@ -79,7 +79,6 @@ func handleAuth(s *Server) (http.HandlerFunc) {
 
 		// check user id is in the users.json file
 		if !isValidUser(user.ID) {
-			s.sessions.Del(se.id)
 			return errors.New("not authorised")
 		}
 
@@ -93,8 +92,17 @@ func handleAuth(s *Server) (http.HandlerFunc) {
 
 func getId(r *http.Request) (string) {
 	sh := sha256.New()
-	sh.Write([]byte(r.RemoteAddr))
+	sh.Write([]byte(getIp(r)))
 	d := sh.Sum(nil)
 	i := binary.BigEndian.Uint64(d)
 	return strconv.FormatInt(int64(i), 36)
+}
+
+func getIp(r *http.Request) (string) {
+	s := r.RemoteAddr
+	i := strings.IndexRune(s, ':')
+	if i > 0 {
+		return s[:i]
+	}
+	return s
 }

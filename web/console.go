@@ -28,9 +28,12 @@ func (s *Server) handleConsole() (http.HandlerFunc) {
 		vars := mux.Vars(r)
 		state := vars["id"]
 
+		if getId(r) != state {
+			return errors.New("state rejected")
+		}
+
 		se, ok := s.sessions.Get(state)
 		if !ok || se == nil || !se.auth {
-			s.sessions.Del(state)
 			return errors.New("not authorised")
 		}
 
@@ -42,14 +45,18 @@ func (s *Server) handleConsole() (http.HandlerFunc) {
 func (s *Server) handleFeed() (http.HandlerFunc) {
 	go handleInbound(s)
 	go handleOutbound(s)
+
 	upgrader := websocket.Upgrader{}
 	return handleErr(func(w http.ResponseWriter, r *http.Request) (error) {
 		vars := mux.Vars(r)
 		state := vars["id"]
 
+		if getId(r) != state {
+			return errors.New("state rejected")
+		}
+
 		se, ok := s.sessions.Get(state)
 		if !ok || se == nil || !se.auth {
-			s.sessions.Del(state)
 			return errors.New("not authorised")
 		}
 
@@ -60,8 +67,14 @@ func (s *Server) handleFeed() (http.HandlerFunc) {
 		}
 
 		se.conn = conn
+		se.connected = true
+
 		conn.SetCloseHandler(func(code int, text string) (error) {
-			s.sessions.Del(state)
+			time.AfterFunc(time.Second * 20, func() {
+				if se, ok := s.sessions.Get(state); ok && !se.connected {
+					s.sessions.Del(state)
+				}
+			})
 			return errors.New(text)
 		})
 
@@ -74,16 +87,13 @@ func handleInbound(s *Server) {
 	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
 	for range ticker.C {
-		s.sessions.ForEach(func(se *Session) {
-			if !se.auth || se.conn == nil {
-				return
-			}
-
+		// read messages into buffer
+		// ForEach holds a lock on sessions so we don't want to do anything blocking inside!
+		s.sessions.ForEach(func(conn websocket.Conn) {
 			var msg Message
-			if err := se.conn.ReadJSON(&msg); err != nil {
+			if err := conn.ReadJSON(&msg); err != nil {
 				return
 			}
-
 			s.Inbound <- msg
 		})
 	}
@@ -93,12 +103,8 @@ func handleInbound(s *Server) {
 func handleOutbound(s *Server) {
 	for {
 		msg := <-s.Outbound
-		s.sessions.ForEach(func(se *Session) {
-			if se == nil || !se.auth || se.conn == nil {
-				return
-			}
-
-			se.conn.WriteJSON(&msg)
+		s.sessions.ForEach(func(conn websocket.Conn) {
+			conn.WriteJSON(&msg)
 		})
 	}
 }

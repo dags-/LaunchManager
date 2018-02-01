@@ -2,17 +2,17 @@ package web
 
 import (
 	"context"
-	"fmt"
 	"sync"
 
 	"github.com/gorilla/websocket"
 )
 
 type Session struct {
-	id   string
-	auth bool
-	ctx  context.Context
-	conn *websocket.Conn
+	id        string
+	auth      bool
+	connected bool
+	ctx       context.Context
+	conn      *websocket.Conn
 }
 
 type Sessions struct {
@@ -20,19 +20,19 @@ type Sessions struct {
 	backing map[string]*Session
 }
 
-func (s *Sessions) ForEach(f func(s *Session)) {
-	s.lock.RLock()
-	defer s.lock.RUnlock()
+func (s *Sessions) ForEach(f func(conn websocket.Conn)) {
+	s.lock.Lock()
+	defer s.lock.Unlock()
 	for _, s := range s.backing {
-		if s != nil {
-			f(s)
+		if s != nil && s.conn != nil {
+			go f(*s.conn)
 		}
 	}
 }
 
 func (s *Sessions) Get(id string) (*Session, bool) {
-	s.lock.RLock()
-	defer s.lock.RUnlock()
+	s.lock.Lock()
+	defer s.lock.Unlock()
 	se, ok := s.backing[id]
 	return se, ok
 }
@@ -46,6 +46,5 @@ func (s *Sessions) Add(se *Session) {
 func (s *Sessions) Del(id string) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
-	fmt.Println("removing session:", id)
 	delete(s.backing, id)
 }
