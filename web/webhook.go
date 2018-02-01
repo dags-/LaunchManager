@@ -15,11 +15,11 @@ type Webhook struct {
 	Avatar   string `json:"avatar_url"`
 }
 
-func PostWebhook(webhook Webhook, id, token string) {
+func PostWebhook(id, token string, webhook *Webhook) {
 	url := fmt.Sprint(webhookUrl, id, "/", token)
 
 	var body bytes.Buffer
-	err := json.NewEncoder(&body).Encode(&webhook)
+	err := json.NewEncoder(&body).Encode(webhook)
 	if err != nil {
 		fmt.Println("Webhook Encode Err:", err)
 		return

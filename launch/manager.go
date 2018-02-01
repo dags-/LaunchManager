@@ -1,6 +1,7 @@
 package launch
 
 import (
+	"fmt"
 	"io"
 	"os"
 	"os/exec"
@@ -8,6 +9,7 @@ import (
 	"time"
 
 	"github.com/dags-/LaunchManager/web"
+	"github.com/pkg/errors"
 )
 
 // the application state
@@ -36,63 +38,76 @@ func NewManager() (*Manager) {
 	return m
 }
 
-func (m *Manager) Lock() {
-	m.lock.Lock()
-}
-
-func (m *Manager) Unlock() {
-	m.lock.Unlock()
-}
-
-func (m *Manager) RLock() {
-	m.lock.RLock()
-}
-
-func (m *Manager) RUnlock() {
-	m.lock.RUnlock()
-}
-
-func (m *Manager) setProcess(p *os.Process, w io.WriteCloser) {
-	m.Lock()
-	defer m.Unlock()
-	m.process = p
-	m.input = w
-}
-
-func (m *Manager) getStatus() (Status) {
-	m.RLock()
-	defer m.RUnlock()
-	s := m.status
-	return s
-}
-
-func (m *Manager) setStatus(s Status) {
-	m.Lock()
-	defer m.Unlock()
-	m.status = s
-	m.onStatus(s)
-}
-
 func (m *Manager) getRestartWait() (time.Duration) {
-	m.RLock()
-	defer m.RUnlock()
+	m.lock.RLock()
+	defer m.lock.RUnlock()
 	t := m.config.Schedule.Restart
 	return time.Duration(t) * time.Minute
 }
 
+func (m *Manager) getStatus() (Status) {
+	m.lock.RLock()
+	defer m.lock.RUnlock()
+	s := m.status
+	return s
+}
+
 func (m *Manager) getCrashWait() (time.Duration) {
-	m.RLock()
-	defer m.RUnlock()
+	m.lock.RLock()
+	defer m.lock.RUnlock()
 	t := m.config.Schedule.CrashWait
 	return time.Duration(t) * time.Second
 }
 
 func (m *Manager) getCommand() (*exec.Cmd) {
-	m.RLock()
-	defer m.RUnlock()
+	m.lock.RLock()
+	defer m.lock.RUnlock()
 	var args []string
 	args = append(args, "-jar")
 	args = append(args, m.config.Launch.Target)
 	args = append(args, m.config.Launch.Args...)
 	return exec.Command(m.config.Launch.Runtime, args...)
+}
+
+func (m *Manager) getWebhook() (string, string, string, string) {
+	m.lock.RLock()
+	defer m.lock.RUnlock()
+	prefs := m.config.Webhook
+	return prefs.Id, prefs.Token, prefs.Name, prefs.Avatar
+}
+
+func (m *Manager) hasProcess() (bool) {
+	m.lock.RLock()
+	defer m.lock.RUnlock()
+	return m.process != nil
+}
+
+func (m *Manager) exec(cmd string) (error) {
+	m.lock.Lock()
+	defer m.lock.Unlock()
+	if m.input != nil {
+		_, err := fmt.Fprintln(m.input, cmd)
+		return err
+	}
+	return errors.New("no process currently attached")
+}
+
+func (m *Manager) reloadConfig() {
+	m.lock.Lock()
+	defer m.lock.Unlock()
+	m.config = loadConfig()
+}
+
+func (m *Manager) setProcess(p *os.Process, w io.WriteCloser) {
+	m.lock.Lock()
+	defer m.lock.Unlock()
+	m.process = p
+	m.input = w
+}
+
+func (m *Manager) setStatus(s Status) {
+	m.lock.Lock()
+	defer m.lock.Unlock()
+	m.status = s
+	m.onStatus(s)
 }

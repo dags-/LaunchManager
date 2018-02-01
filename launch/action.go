@@ -7,16 +7,15 @@ import (
 	"os"
 	"regexp"
 	"time"
-
 )
 
 var (
 	startCheck = regexp.MustCompile(`.*Done \(\d+\.\d+s\)! .*`)
 )
 
-func (m* Manager) Fallback(command string) (error) {
+func (m *Manager) Fallback(command string) (error) {
 	if m.getStatus() == Started {
-		return m.Exec(command)
+		return m.exec(command)
 	}
 	return m.commands.NotFound()
 }
@@ -36,8 +35,8 @@ func (m *Manager) Stop() (error) {
 	if m.getStatus() == Started {
 		m.setStatus(Stopping)
 		m.Say("Now stopping")
-		m.Exec("save-all")
-		m.Exec("stop")
+		m.exec("save-all")
+		m.exec("stop")
 		return nil
 	} else {
 		return errors.New("process has not started yet")
@@ -72,14 +71,11 @@ func (m *Manager) Restart() (error) {
 
 // kills an active process without doing the normal (and safer) stop process
 func (m *Manager) Kill() (error) {
-	m.Lock()
-	defer m.Unlock()
-	if m.process != nil {
-		m.status = Killed
-		m.onStatus(Killed)
+	if m.hasProcess() {
+		m.setStatus(Killed)
 		m.process.Kill()
 		m.process.Release()
-		m.process = nil
+		m.setProcess(nil, nil)
 		return nil
 	}
 	return errors.New("no process attached")
@@ -87,9 +83,7 @@ func (m *Manager) Kill() (error) {
 
 // reload the config
 func (m *Manager) Reload() (error) {
-	m.Lock()
-	defer m.Unlock()
-	m.config = loadConfig()
+	m.reloadConfig()
 	return nil
 }
 
@@ -122,20 +116,9 @@ func (m *Manager) Status() (error) {
 // performs a 'say' command
 func (m *Manager) Say(message string, args ...interface{}) (error) {
 	if len(args) == 0 {
-		return m.Exec(fmt.Sprint("say ", message))
+		return m.exec(fmt.Sprint("say ", message))
 	}
-	return m.Exec(fmt.Sprint("say ", fmt.Sprintf(message, args...)))
-}
-
-// writes a command to the current process' input writer
-func (m *Manager) Exec(cmd string) (error) {
-	m.RLock()
-	defer m.RUnlock()
-	if m.input != nil {
-		_, err := fmt.Fprintln(m.input, cmd)
-		return err
-	}
-	return errors.New("no process currently attached")
+	return m.exec(fmt.Sprint("say ", fmt.Sprintf(message, args...)))
 }
 
 // prints the available commands

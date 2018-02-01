@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"sync"
+	"time"
 
 	"github.com/GeertJohan/go.rice"
 	"github.com/gorilla/mux"
@@ -44,11 +45,18 @@ func DiscordEndpoints() (oauth2.Endpoint) {
 func (s *Server) Start(port int) {
 	s.port = port
 	m := mux.NewRouter()
-	m.HandleFunc("/auth", handleAuth(s))
-	m.HandleFunc("/login", handleLogin(s))
-	m.HandleFunc("/feed/{id}", s.handleFeed())
-	m.HandleFunc("/console/{id}", s.handleConsole())
-	go http.ListenAndServe(fmt.Sprintf(":%v", s.port), m)
+	m.HandleFunc("/auth", handleAuth(s)).Methods("GET")
+	m.HandleFunc("/login", handleLogin(s)).Methods("GET")
+	m.HandleFunc("/feed/{id}", s.handleFeed()).Methods("GET")
+	m.HandleFunc("/console/{id}", s.handleConsole()).Methods("GET")
+	srv := &http.Server{
+		Handler:        m,
+		Addr:           fmt.Sprintf(":%v", s.port),
+		WriteTimeout:   5 * time.Second,
+		ReadTimeout:    5 * time.Second,
+		MaxHeaderBytes: 2096,
+	}
+	go srv.ListenAndServe()
 }
 
 func handleErr(f func(w http.ResponseWriter, r *http.Request) error) (http.HandlerFunc) {

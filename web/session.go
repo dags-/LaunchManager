@@ -2,6 +2,7 @@ package web
 
 import (
 	"context"
+	"fmt"
 	"sync"
 
 	"github.com/gorilla/websocket"
@@ -23,7 +24,9 @@ func (s *Sessions) ForEach(f func(s *Session)) {
 	s.lock.RLock()
 	defer s.lock.RUnlock()
 	for _, s := range s.backing {
-		f(s)
+		if s != nil {
+			f(s)
+		}
 	}
 }
 
@@ -43,5 +46,6 @@ func (s *Sessions) Add(se *Session) {
 func (s *Sessions) Del(id string) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
+	fmt.Println("removing session:", id)
 	delete(s.backing, id)
 }

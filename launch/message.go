@@ -11,7 +11,7 @@ import (
 func (m *Manager) onStatus(s Status) {
 	fmt.Println(">", s)
 	go sendWebhook(m, s.String())
-	go sendMessage(m, "> " + s.String())
+	go sendMessage(m, "> "+s.String())
 }
 
 // handles messages from the running process
@@ -49,13 +49,10 @@ func sendMessage(m *Manager, msg string) {
 }
 
 func sendWebhook(m *Manager, msg string) {
-	m.RLock()
-	defer m.RUnlock()
-	c := m.config.Webhook
-	w := web.Webhook{
-		Content: msg,
-		Username: c.Name,
-		Avatar: c.Avatar,
-	}
-	web.PostWebhook(w, c.Id, c.Token)
+	id, token, name, avatar := m.getWebhook()
+	web.PostWebhook(id, token, &web.Webhook{
+		Content:  msg,
+		Username: name,
+		Avatar:   avatar,
+	})
 }

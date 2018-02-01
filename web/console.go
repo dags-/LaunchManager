@@ -1,7 +1,6 @@
 package web
 
 import (
-	"fmt"
 	"html/template"
 	"net/http"
 	"time"
@@ -21,6 +20,7 @@ type Auth struct {
 	Token string
 }
 
+// http connections for console page
 func (s *Server) handleConsole() (http.HandlerFunc) {
 	text := s.box.MustString("index.html")
 	temp := template.Must(template.New("console").Parse(text))
@@ -30,13 +30,15 @@ func (s *Server) handleConsole() (http.HandlerFunc) {
 
 		se, ok := s.sessions.Get(state)
 		if !ok || se == nil || !se.auth {
-			return errors.New("session not authenticated")
+			s.sessions.Del(state)
+			return errors.New("not authorised")
 		}
 
 		return temp.Execute(w, &Auth{Port: s.port, Token: state})
 	})
 }
 
+// websocket connections for console feed
 func (s *Server) handleFeed() (http.HandlerFunc) {
 	go handleInbound(s)
 	go handleOutbound(s)
@@ -44,14 +46,16 @@ func (s *Server) handleFeed() (http.HandlerFunc) {
 	return handleErr(func(w http.ResponseWriter, r *http.Request) (error) {
 		vars := mux.Vars(r)
 		state := vars["id"]
+
 		se, ok := s.sessions.Get(state)
 		if !ok || se == nil || !se.auth {
-			return errors.New("session not authenticated")
+			s.sessions.Del(state)
+			return errors.New("not authorised")
 		}
 
 		conn, err := upgrader.Upgrade(w, r, nil)
 		if err != nil {
-			fmt.Println(err)
+			s.sessions.Del(state)
 			return err
 		}
 
@@ -71,7 +75,7 @@ func handleInbound(s *Server) {
 	defer ticker.Stop()
 	for range ticker.C {
 		s.sessions.ForEach(func(se *Session) {
-			if se == nil || !se.auth || se.conn == nil {
+			if !se.auth || se.conn == nil {
 				return
 			}
 

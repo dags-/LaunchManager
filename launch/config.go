@@ -84,10 +84,10 @@ func defaultConfig() (Config) {
 			Avatar: "",
 		},
 		Server: ServerPrefs{
-			Port: 8123,
-			ClientId: "",
+			Port:         8123,
+			ClientId:     "",
 			ClientSecret: "",
-			RedirectUri: "",
+			RedirectUri:  "",
 		},
 	}
 }

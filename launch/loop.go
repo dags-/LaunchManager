@@ -38,7 +38,7 @@ func startServer(config Config) (*web.Server) {
 // processes incoming messages from the server websockets
 func processInbound(m *Manager) {
 	for {
-		msg := <- m.server.Inbound
+		msg := <-m.server.Inbound
 		if msg.Type == "command" {
 			go processCommand(m, msg.Content)
 		}
