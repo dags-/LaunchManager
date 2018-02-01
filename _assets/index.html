@@ -10,8 +10,9 @@
         body {
             margin: 0;
             padding: 0;
-            min-height: 480px!important;
+            min-height: 0 !important;
         }
+
         .content {
             padding: 0;
             width: 90%;
@@ -20,6 +21,7 @@
             background-color: #fafafa;
             box-shadow: 0 0 3px 1px rgba(0, 0, 0, 0.2);
         }
+
         .controls {
             width: 100%;
             margin: auto;
@@ -28,6 +30,7 @@
             text-align: center;
             background-color: #eaeaea;
         }
+
         .console {
             padding: 0;
             width: 100%;
@@ -37,15 +40,37 @@
             overflow-y: scroll;
             color: #eaeaea;
         }
+
         .console-content {
             min-height: 100%;
             background-color: #333333;
             box-shadow: 0 0 15px 1px rgba(0, 0, 0, 0.9) inset;
         }
+
         .console-content span {
             margin: 0;
             padding: 0 10px;
             display: block;
+        }
+
+        #start {
+            color: white;
+            background-color: mediumseagreen;
+        }
+
+        #stop {
+            color: white;
+            background-color: coral;
+        }
+
+        #restart {
+            color: white;
+            background-color: dodgerblue;
+        }
+
+        #kill {
+            color: white;
+            background-color: tomato;
         }
     </style>
 </head>
@@ -58,11 +83,11 @@
         <button id="start" class="mdl-button mdl-js-button mdl-button--raised mdl-js-ripple-effect">
             Start
         </button>
-        <button id="stop" class="mdl-button mdl-js-button mdl-button--raised mdl-js-ripple-effect">
-            Stop
-        </button>
         <button id="restart" class="mdl-button mdl-js-button mdl-button--raised mdl-js-ripple-effect">
             Restart
+        </button>
+        <button id="stop" class="mdl-button mdl-js-button mdl-button--raised mdl-js-ripple-effect">
+            Stop
         </button>
         <button id="kill" class="mdl-button mdl-js-button mdl-button--raised mdl-js-ripple-effect">
             Kill
@@ -73,9 +98,9 @@
 <script>
     const consl = document.getElementById("console");
     const content = document.getElementById("console-content");
-    const websocket = new WebSocket("ws://localhost:{{.Port}}/feed/{{.ID}}");
+    const websocket = new WebSocket("ws://localhost:{{.Port}}/feed/{{.Token}}");
 
-    websocket.onopen = function() {
+    websocket.onopen = function () {
         line("...connection established");
         document.getElementById("restart").addEventListener("click", action("restart"));
         document.getElementById("start").addEventListener("click", action("start"));
@@ -83,7 +108,7 @@
         document.getElementById("kill").addEventListener("click", action("kill"));
     };
 
-    websocket.onmessage = function(ev) {
+    websocket.onmessage = function (ev) {
         var msg = JSON.parse(ev.data);
         switch (msg.type) {
             case "console":

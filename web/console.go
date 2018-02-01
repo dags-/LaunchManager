@@ -1,4 +1,4 @@
-package server
+package web
 
 import (
 	"fmt"
@@ -16,6 +16,11 @@ type Message struct {
 	Content string `json:"content"`
 }
 
+type Auth struct {
+	Port  int
+	Token string
+}
+
 func (s *Server) handleConsole() (http.HandlerFunc) {
 	text := s.box.MustString("index.html")
 	temp := template.Must(template.New("console").Parse(text))
@@ -28,12 +33,7 @@ func (s *Server) handleConsole() (http.HandlerFunc) {
 			return errors.New("session not authenticated")
 		}
 
-		data := struct {
-			Port int
-			ID   string
-		}{Port: s.port, ID: state}
-
-		return temp.Execute(w, &data)
+		return temp.Execute(w, &Auth{Port: s.port, Token: state})
 	})
 }
 

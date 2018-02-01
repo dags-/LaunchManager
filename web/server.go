@@ -1,4 +1,4 @@
-package server
+package web
 
 import (
 	"fmt"
@@ -31,6 +31,13 @@ func NewServer(auth *oauth2.Config) (*Server) {
 		sessions: Sessions{
 			backing: make(map[string]*Session),
 		},
+	}
+}
+
+func DiscordEndpoints() (oauth2.Endpoint) {
+	return oauth2.Endpoint{
+		AuthURL:  "https://discordapp.com/api/oauth2/authorize",
+		TokenURL: "https://discordapp.com/api/oauth2/token",
 	}
 }
 

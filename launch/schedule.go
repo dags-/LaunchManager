@@ -2,7 +2,7 @@ package launch
 
 import "time"
 
-func doSchedule(m *Manager) {
+func scheduleRestart(m *Manager) {
 	if m.config.Schedule.Restart < 0 {
 		return
 	}

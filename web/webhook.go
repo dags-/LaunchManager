@@ -1,4 +1,4 @@
-package launch
+package web
 
 import (
 	"bytes"
@@ -15,16 +15,11 @@ type Webhook struct {
 	Avatar   string `json:"avatar_url"`
 }
 
-func PostWebook(prefs WebhookPrefs, status Status) {
-	url := fmt.Sprint(webhookUrl, prefs.Id, "/", prefs.Token)
-	wh := Webhook{
-		Content:  fmt.Sprint("Status: ", status),
-		Username: prefs.Name,
-		Avatar:   prefs.Avatar,
-	}
+func PostWebhook(webhook Webhook, id, token string) {
+	url := fmt.Sprint(webhookUrl, id, "/", token)
 
 	var body bytes.Buffer
-	err := json.NewEncoder(&body).Encode(&wh)
+	err := json.NewEncoder(&body).Encode(&webhook)
 	if err != nil {
 		fmt.Println("Webhook Encode Err:", err)
 		return

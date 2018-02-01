@@ -1,4 +1,4 @@
-package server
+package web
 
 import (
 	"context"
@@ -34,7 +34,7 @@ func handleLogin(s *Server) (http.HandlerFunc) {
 		})
 
 		url := s.conf.AuthCodeURL(session.id, oauth2.AccessTypeOffline)
-		http.Redirect(w, r, url, 301)
+		http.Redirect(w, r, url, 302)
 		return nil
 	})
 }

@@ -2,20 +2,15 @@ package launch
 
 import (
 	"fmt"
-	"regexp"
 	"time"
 
-	"github.com/dags-/LaunchManager/server"
-)
-
-var (
-	startCheck = regexp.MustCompile(`.*Done \(\d+\.\d+s\)! .*`)
+	"github.com/dags-/LaunchManager/web"
 )
 
 // handles status updates
 func (m *Manager) onStatus(s Status) {
 	fmt.Println(">", s)
-	go PostWebook(m.config.Webhook, s)
+	go sendWebhook(m, s.String())
 	go sendMessage(m, "> " + s.String())
 }
 
@@ -27,6 +22,13 @@ func (m *Manager) onMessage(s string) {
 
 	if m.getStatus() == Starting && startCheck.MatchString(s) {
 		m.setStatus(Started)
+	}
+}
+
+// handles error messages
+func (m *Manager) onError(e error) {
+	if e != nil {
+		m.onMessage(e.Error())
 	}
 }
 
@@ -43,5 +45,17 @@ func sendMessage(m *Manager, msg string) {
 	if m.server == nil {
 		return
 	}
-	m.server.Outbound <- server.Message{Type: "console", Content: msg}
+	m.server.Outbound <- web.Message{Type: "console", Content: msg}
+}
+
+func sendWebhook(m *Manager, msg string) {
+	m.RLock()
+	defer m.RUnlock()
+	c := m.config.Webhook
+	w := web.Webhook{
+		Content: msg,
+		Username: c.Name,
+		Avatar: c.Avatar,
+	}
+	web.PostWebhook(w, c.Id, c.Token)
 }

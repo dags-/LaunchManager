@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/dags-/LaunchManager/server"
+	"github.com/dags-/LaunchManager/web"
 	"golang.org/x/oauth2"
 )
 
@@ -18,31 +18,37 @@ func (m *Manager) Run() {
 
 	scanner := bufio.NewScanner(os.Stdin)
 	for scanner.Scan() {
-		go m.ProcessCommand(scanner.Text())
+		go processCommand(m, scanner.Text())
 	}
 }
 
-func startServer(config Config) (*server.Server) {
-	auth := &oauth2.Config{
+// creates the server, starts it in a new goroutine, and returns it's pointer
+func startServer(config Config) (*web.Server) {
+	s := web.NewServer(&oauth2.Config{
 		ClientID:     config.Server.ClientId,
 		ClientSecret: config.Server.ClientSecret,
-		RedirectURL: fmt.Sprintf(config.Server.RedirectUri, config.Server.Port),
-		Endpoint: oauth2.Endpoint{
-			AuthURL:  "https://discordapp.com/api/oauth2/authorize",
-			TokenURL: "https://discordapp.com/api/oauth2/token",
-		},
-		Scopes: []string{"identify"},
-	}
-	s := server.NewServer(auth)
+		RedirectURL:  fmt.Sprintf(config.Server.RedirectUri, config.Server.Port),
+		Endpoint:     web.DiscordEndpoints(),
+		Scopes:       []string{"identify"},
+	})
 	s.Start(config.Server.Port)
 	return s
 }
 
+// processes incoming messages from the server websockets
 func processInbound(m *Manager) {
 	for {
 		msg := <- m.server.Inbound
 		if msg.Type == "command" {
-			go m.ProcessCommand(msg.Content)
+			go processCommand(m, msg.Content)
 		}
+	}
+}
+
+// processes command input, printing any error messages thrown
+func processCommand(m *Manager, cmd string) {
+	err := m.commands.Call(cmd)
+	if err != nil {
+		m.onError(err)
 	}
 }

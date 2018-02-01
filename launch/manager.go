@@ -7,25 +7,33 @@ import (
 	"sync"
 	"time"
 
-	"github.com/dags-/LaunchManager/server"
+	"github.com/dags-/LaunchManager/web"
 )
 
 // the application state
 type Manager struct {
-	lock    sync.RWMutex
-	status  Status
-	config  Config
-	server  *server.Server
-	input   io.WriteCloser
-	process *os.Process
+	lock     sync.RWMutex
+	status   Status
+	config   Config
+	commands *Commands
+	server   *web.Server
+	input    io.WriteCloser
+	process  *os.Process
 }
 
 func NewManager() (*Manager) {
-	config := loadConfig()
-	return &Manager{
-		status: Stopped,
-		config: config,
-	}
+	m := &Manager{status: Stopped}
+	m.config = loadConfig()
+	m.commands = NewCommands()
+	m.commands.SetFallback(m.Fallback)
+	m.commands.Register("start", m.Start)
+	m.commands.Register("stop", m.Stop)
+	m.commands.Register("restart", m.Restart)
+	m.commands.Register("kill", m.Kill)
+	m.commands.Register("reload", m.Reload)
+	m.commands.Register("exit", m.Exit)
+	m.commands.Register("status", m.Status)
+	return m
 }
 
 func (m *Manager) Lock() {

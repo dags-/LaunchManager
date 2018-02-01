@@ -6,7 +6,7 @@ import (
 )
 
 // handles the launch process
-func doLaunch(m *Manager) {
+func launch(m *Manager) {
 	// clean-up that should happen after every launch
 	defer func() {
 		m.setProcess(nil, nil)
@@ -39,7 +39,7 @@ func doLaunch(m *Manager) {
 	m.setProcess(cmd.Process, in)
 
 	// start the restart schedule
-	go doSchedule(m)
+	go scheduleRestart(m)
 
 	// read output from the process and pass to onMessage
 	go func() {
