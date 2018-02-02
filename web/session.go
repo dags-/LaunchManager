@@ -3,16 +3,19 @@ package web
 import (
 	"context"
 	"sync"
+	"sync/atomic"
+)
 
-	"github.com/gorilla/websocket"
+const (
+	unauthd   int64 = 0
+	authd     int64 = 1
+	connected int64 = 2
 )
 
 type Session struct {
-	id        string
-	auth      bool
-	connected bool
-	ctx       context.Context
-	conn      *websocket.Conn
+	id    string
+	state int64
+	ctx   context.Context
 }
 
 type Sessions struct {
@@ -20,14 +23,29 @@ type Sessions struct {
 	backing map[string]*Session
 }
 
-func (s *Sessions) ForEach(f func(conn websocket.Conn)) {
+func (s *Session) setState(i int64) {
+	atomic.StoreInt64(&s.state, i)
+}
+
+func (s *Session) getState() (int64) {
+	return atomic.LoadInt64(&s.state)
+}
+
+func (s *Sessions) Must(id string) (*Session) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
-	for _, s := range s.backing {
-		if s != nil && s.conn != nil {
-			go f(*s.conn)
-		}
+	if se, ok := s.backing[id]; ok {
+		return se
 	}
+
+	se := &Session{
+		id:    id,
+		state: unauthd,
+		ctx:   context.Background(),
+	}
+	s.backing[id] = se
+
+	return se
 }
 
 func (s *Sessions) Get(id string) (*Session, bool) {

@@ -15,9 +15,9 @@ type Message struct {
 	Content string `json:"content"`
 }
 
-type Auth struct {
-	Port  int
-	Token string
+type Token struct {
+	Port int
+	ID   string
 }
 
 // http connections for console page
@@ -26,85 +26,82 @@ func (s *Server) handleConsole() (http.HandlerFunc) {
 	temp := template.Must(template.New("console").Parse(text))
 	return handleErr(func(w http.ResponseWriter, r *http.Request) (error) {
 		vars := mux.Vars(r)
-		state := vars["id"]
+		sid := vars["id"]
 
-		if getId(r) != state {
-			return errors.New("state rejected")
+		se, err := s.getSession(sid, r)
+		if err != nil {
+			s.sessions.Del(sid)
+			return err
 		}
 
-		se, ok := s.sessions.Get(state)
-		if !ok || se == nil || !se.auth {
-			return errors.New("not authorised")
+		if se.getState() != authd {
+			s.sessions.Del(sid)
+			return errors.New("session is not authenticated")
 		}
 
-		return temp.Execute(w, &Auth{Port: s.port, Token: state})
+		se.setState(connected)
+		return temp.Execute(w, &Token{Port: s.port, ID: se.id})
 	})
 }
 
 // websocket connections for console feed
 func (s *Server) handleFeed() (http.HandlerFunc) {
-	go handleInbound(s)
-	go handleOutbound(s)
-
 	upgrader := websocket.Upgrader{}
 	return handleErr(func(w http.ResponseWriter, r *http.Request) (error) {
 		vars := mux.Vars(r)
-		state := vars["id"]
+		sid := vars["id"]
 
-		if getId(r) != state {
-			return errors.New("state rejected")
+		se, err := s.getSession(sid, r)
+		if err != nil {
+			s.sessions.Del(sid)
+			return err
 		}
 
-		se, ok := s.sessions.Get(state)
-		if !ok || se == nil || !se.auth {
-			return errors.New("not authorised")
+		if se.getState() != connected {
+			s.sessions.Del(sid)
+			return errors.New("session is not authenticated")
 		}
 
 		conn, err := upgrader.Upgrade(w, r, nil)
 		if err != nil {
-			s.sessions.Del(state)
+			s.sessions.Del(sid)
 			return err
 		}
 
-		se.conn = conn
-		se.connected = true
-
+		// allow return visit within 20 secs, otherwise remove the session
 		conn.SetCloseHandler(func(code int, text string) (error) {
-			time.AfterFunc(time.Second * 20, func() {
-				if se, ok := s.sessions.Get(state); ok && !se.connected {
-					s.sessions.Del(state)
+			time.AfterFunc(time.Second*20, func() {
+				if se, ok := s.sessions.Get(sid); ok && se.getState() != connected {
+					s.sessions.Del(sid)
 				}
 			})
 			return errors.New(text)
 		})
 
+		go read(s.Inbound, conn)
+		go write(s.Outbound, conn)
+
 		return nil
 	})
 }
 
-// reads messages from client sessions and relays to the inbound channel
-func handleInbound(s *Server) {
-	ticker := time.NewTicker(time.Second)
-	defer ticker.Stop()
-	for range ticker.C {
-		// read messages into buffer
-		// ForEach holds a lock on sessions so we don't want to do anything blocking inside!
-		s.sessions.ForEach(func(conn websocket.Conn) {
-			var msg Message
-			if err := conn.ReadJSON(&msg); err != nil {
-				return
-			}
-			s.Inbound <- msg
-		})
+func read(c chan Message, conn *websocket.Conn) {
+	for {
+		var msg Message
+		err := conn.ReadJSON(&msg)
+		if err != nil {
+			return
+		}
+		c <- msg
 	}
 }
 
-// relays outbound messages to client sessions
-func handleOutbound(s *Server) {
+func write(c chan Message, conn *websocket.Conn) {
 	for {
-		msg := <-s.Outbound
-		s.sessions.ForEach(func(conn websocket.Conn) {
-			conn.WriteJSON(&msg)
-		})
+		msg := <-c
+		err := conn.WriteJSON(&msg)
+		if err != nil {
+			return
+		}
 	}
 }

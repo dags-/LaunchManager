@@ -1,4 +1,5 @@
 .idea/
 *.json
 *.jar
+*.xml
 *rice-box.go

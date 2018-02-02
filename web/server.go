@@ -1,6 +1,7 @@
 package web
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"sync"
@@ -21,9 +22,7 @@ type Server struct {
 	Outbound chan Message
 }
 
-func NewServer(auth *oauth2.Config) (*Server) {
-	box := rice.MustFindBox("../_assets")
-
+func NewServer(auth *oauth2.Config, box *rice.Box) (*Server) {
 	return &Server{
 		box:      box,
 		conf:     auth,
@@ -57,6 +56,20 @@ func (s *Server) Start(port int) {
 		MaxHeaderBytes: 2096,
 	}
 	go srv.ListenAndServe()
+}
+
+func (s *Server) getSession(sid string, r *http.Request) (*Session, error) {
+	se, ok := s.sessions.Get(sid)
+	if !ok {
+		return nil, errors.New("no active session")
+	}
+
+	id := getId(r)
+	if id != se.id {
+		return nil, errors.New("invalid id provided")
+	}
+
+	return se, nil
 }
 
 func handleErr(f func(w http.ResponseWriter, r *http.Request) error) (http.HandlerFunc) {

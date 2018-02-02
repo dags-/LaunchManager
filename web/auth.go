@@ -1,35 +1,32 @@
 package web
 
 import (
-	"context"
 	"crypto/sha256"
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/pkg/errors"
 	"golang.org/x/oauth2"
-	"strings"
 )
+
+type DiscordUser struct {
+	ID string `json:"id"`
+}
 
 func handleLogin(s *Server) (http.HandlerFunc) {
 	return handleErr(func(w http.ResponseWriter, r *http.Request) (error) {
 		// hash user address to use as 'state'
-		token := getId(r)
-		session := &Session{
-			id:   token,
-			auth: false,
-			ctx:  context.Background(),
-		}
+		id := getId(r)
+		session := s.sessions.Must(id)
 
-		s.sessions.Add(session)
-
-		// clean up any un-auth'd sessions after 30 secs
-		time.AfterFunc(time.Second*30, func() {
-			if !session.auth {
+		// clean up unused or un-auth'd sessions
+		time.AfterFunc(time.Second*60, func() {
+			if session.getState() != connected {
 				s.sessions.Del(session.id)
 			}
 		})
@@ -47,15 +44,10 @@ func handleAuth(s *Server) (http.HandlerFunc) {
 		state := r.FormValue("state")
 		code := r.FormValue("code")
 
-		// check session exists
-		se, ok := s.sessions.Get(state)
-		if !ok {
-			return errors.New("no session exists")
-		}
-
-		// check state is valid for the session
-		if state != getId(r) {
-			return errors.New("invalid state")
+		// get the session for the given state
+		se, err := s.getSession(state, r)
+		if err != nil {
+			return err
 		}
 
 		// exchange auth code for api token
@@ -71,7 +63,7 @@ func handleAuth(s *Server) (http.HandlerFunc) {
 			return err
 		}
 
-		user := struct{ ID string `json:"id"` }{}
+		var user DiscordUser
 		err = json.NewDecoder(req.Body).Decode(&user)
 		if err != nil {
 			return err
@@ -83,7 +75,7 @@ func handleAuth(s *Server) (http.HandlerFunc) {
 		}
 
 		// passed authentication, redirect to console
-		se.auth = true
+		se.setState(authd)
 		redirect := fmt.Sprint("/console", "/", se.id)
 		http.Redirect(w, r, redirect, 302)
 		return nil

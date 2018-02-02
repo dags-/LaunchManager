@@ -1,11 +1,14 @@
-//go:generate rice embed-go /i github.com/dags-/LaunchManager/web
+//go:generate rice embed-go
+//go:generate go build
 package main
 
 import (
+	"github.com/GeertJohan/go.rice"
 	"github.com/dags-/LaunchManager/launch"
 )
 
 func main() {
-	manager := launch.NewManager()
+	box := rice.MustFindBox("_assets")
+	manager := launch.NewManager(box)
 	manager.Run()
 }

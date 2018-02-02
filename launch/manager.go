@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/GeertJohan/go.rice"
 	"github.com/dags-/LaunchManager/web"
 	"github.com/pkg/errors"
 )
@@ -17,14 +18,15 @@ type Manager struct {
 	lock     sync.RWMutex
 	status   Status
 	config   Config
+	box      *rice.Box
 	commands *Commands
 	server   *web.Server
 	input    io.WriteCloser
 	process  *os.Process
 }
 
-func NewManager() (*Manager) {
-	m := &Manager{status: Stopped}
+func NewManager(box *rice.Box) (*Manager) {
+	m := &Manager{status: Stopped, box: box}
 	m.config = loadConfig()
 	m.commands = NewCommands()
 	m.commands.SetFallback(m.Fallback)

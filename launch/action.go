@@ -7,6 +7,7 @@ import (
 	"os"
 	"regexp"
 	"time"
+
 )
 
 var (
@@ -37,6 +38,16 @@ func (m *Manager) Stop() (error) {
 		m.Say("Now stopping")
 		m.exec("save-all")
 		m.exec("stop")
+
+		start := time.Now()
+		timeout := time.Second * 15
+		for m.getStatus() != Stopped {
+			time.Sleep(time.Second)
+			if time.Since(start) > timeout {
+				return errors.New("stop timed out")
+			}
+		}
+
 		return nil
 	} else {
 		return errors.New("process has not started yet")
@@ -61,11 +72,16 @@ func (m *Manager) Restart() (error) {
 	}
 
 	// wait for process to have stopped
+	start := time.Now()
+	timeout := time.Second * 15
 	for m.getStatus() != Stopped {
+		fmt.Println(3)
 		time.Sleep(time.Second)
+		if time.Since(start) > timeout {
+			return errors.New("restart timed out waiting for process to stop")
+		}
 	}
 
-	// start a new process
 	return m.Start()
 }
 

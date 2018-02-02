@@ -3,6 +3,7 @@ package launch
 import (
 	"bufio"
 	"fmt"
+	"time"
 )
 
 // handles the launch process
@@ -33,6 +34,12 @@ func launch(m *Manager) {
 		m.onMessage(fmt.Sprint("Start Err: ", err))
 		return
 	}
+
+	time.AfterFunc(time.Second*5, func() {
+		if m.getStatus() == Starting {
+			m.setStatus(Started)
+		}
+	})
 
 	// set status as 'starting' and attach current process/writer
 	m.setStatus(Starting)

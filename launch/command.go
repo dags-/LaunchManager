@@ -31,15 +31,14 @@ func NewCommands() (*Commands) {
 func (c *Commands) Call(command string) (error) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
-
 	cmd, ok := c.commands[command]
+
 	if !ok {
 		return c.fallback(command)
 	}
 
 	// execute and return any errors
-	e := cmd()
-	return e
+	return cmd()
 }
 
 func (c *Commands) Register(id string, cmd Command) {
